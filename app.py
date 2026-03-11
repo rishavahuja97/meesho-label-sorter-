@@ -275,5 +275,4 @@ def cleanup(sid):
     return jsonify({'ok': True})
 
 if __name__ == '__main__':
-    print("\n✅ Meesho Label Sorter running at: http://localhost:5050\n")
-    app.run(debug=False, port=5050)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5050)))
