@@ -1,0 +1,4 @@
+flask
+pypdf
+pdfplumber
+gunicorn
