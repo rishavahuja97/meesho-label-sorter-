@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meesho Label Sorter</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f4ef;
+  --surface: #ffffff;
+  --surface2: #f0ece4;
+  --border: #ddd8ce;
+  --ink: #1a1612;
+  --muted: #8a8278;
+  --accent: #e85d2f;
+  --accent2: #2563eb;
+  --green: #16a34a;
+  --yellow: #f59e0b;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--ink); font-family: 'Bricolage Grotesque', sans-serif; min-height: 100vh; }
+
+/* Layout */
+.shell { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
+.sidebar { background: var(--ink); color: #f0ece4; padding: 28px 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.main { padding: 32px 36px; overflow-y: auto; }
+
+/* Sidebar */
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+.brand-icon { width: 38px; height: 38px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.brand h1 { font-size: 16px; font-weight: 800; line-height: 1.2; }
+.brand span { font-size: 11px; color: #a09890; }
+
+.step-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #a09890; margin-bottom: 10px; margin-top: 24px; }
+.step-label:first-of-type { margin-top: 0; }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed #3a3632; border-radius: 12px; padding: 20px;
+  text-align: center; cursor: pointer; transition: all 0.2s;
+  background: rgba(255,255,255,0.03);
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(232,93,47,0.08); }
+.upload-zone input { display: none; }
+.upload-zone .uz-icon { font-size: 28px; margin-bottom: 8px; }
+.upload-zone p { font-size: 12px; color: #a09890; line-height: 1.5; }
+.upload-zone strong { color: #f0ece4; }
+
+.file-list { margin-top: 10px; }
+.file-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border-radius: 6px;
+  padding: 6px 10px; margin-bottom: 4px; font-size: 12px;
+}
+.file-chip .fc-icon { color: var(--accent); }
+.file-chip .fc-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-chip .fc-remove { cursor: pointer; color: #666; }
+.file-chip .fc-remove:hover { color: var(--accent); }
+
+.btn-upload { width: 100%; margin-top: 10px; padding: 10px; border-radius: 8px; background: var(--accent); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700; border: none; cursor: pointer; transition: all 0.15s; }
+.btn-upload:hover { background: #d04a1e; }
+.btn-upload:disabled { background: #3a3632; color: #666; cursor: not-allowed; }
+
+/* SKU list in sidebar */
+.sku-item {
+  display: flex; align-items: center; gap-8px;
+  background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 10px;
+  margin-bottom: 6px; cursor: pointer; transition: background 0.15s;
+  border: 1px solid transparent;
+}
+.sku-item:hover { background: rgba(255,255,255,0.09); }
+.sku-item.selected { border-color: var(--accent); background: rgba(232,93,47,0.12); }
+.sku-item .si-name { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; flex: 1; }
+.sku-item .si-count { font-size: 11px; color: #a09890; }
+.sku-item .si-sizes { font-size: 10px; color: #786e66; margin-top: 2px; }
+
+/* Main area */
+.page-title { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+/* Cards */
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 22px; box-shadow: var(--shadow);
+}
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.card-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.ic-orange { background: #fff0eb; }
+.ic-blue { background: #eff6ff; }
+.ic-green { background: #f0fdf4; }
+.ic-yellow { background: #fffbeb; }
+.card-title { font-size: 15px; font-weight: 700; }
+.card-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* Stats bar */
+.stats-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; }
+.stat-val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+.stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+
+/* SKU Table */
+.sku-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sku-table th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.sku-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.sku-table tr:hover td { background: var(--surface2); }
+.sku-table tr:last-child td { border-bottom: none; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+.size-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); margin: 1px; }
+.btn-dl { padding: 5px 14px; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-dl.orange { background: var(--accent); color: #fff; }
+.btn-dl.orange:hover { background: #d04a1e; }
+.btn-dl.blue { background: var(--accent2); color: #fff; }
+.btn-dl.blue:hover { background: #1d4ed8; }
+.btn-dl.green { background: var(--green); color: #fff; }
+.btn-dl.green:hover { background: #15803d; }
+.btn-dl.outline { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+.btn-dl.outline:hover { border-color: var(--accent); color: var(--accent); }
+.checkbox-sku { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+/* Groups section */
+.group-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
+.group-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.group-skus { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.group-sku-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 6px; }
+.group-sku-tag .remove { cursor: pointer; color: var(--muted); }
+.group-sku-tag .remove:hover { color: var(--accent); }
+
+/* New group form */
+.new-group-form { background: var(--surface2); border: 1px dashed var(--border); border-radius: 10px; padding: 16px; }
+.fg-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+input[type=text], select {
+  background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+  padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 13px;
+  outline: none; transition: border-color 0.2s;
+}
+input[type=text]:focus, select:focus { border-color: var(--accent); }
+
+/* Download panel */
+.dl-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+.dl-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.dl-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.dl-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+.dl-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.dl-row select { min-width: 160px; }
+.size-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+.size-cb { display: flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+.size-cb input { accent-color: var(--accent); }
+.size-cb:has(input:checked) { border-color: var(--accent); background: #fff0eb; }
+
+/* Empty / loading states */
+.empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty p { font-size: 14px; }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--ink); color: #f0ece4; padding: 12px 20px; border-radius: 10px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: #dc2626; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab-btn { padding: 9px 18px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border: none; background: transparent; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* Multi-select bar */
+.selection-bar { background: var(--ink); color: #f0ece4; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.selection-bar span { font-size: 13px; }
+.sb-count { font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { height: auto; position: static; }
+  .cards-grid { grid-template-columns: 1fr; }
+  .main { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">📦</div>
+      <div><h1>Label Sorter</h1><span>Meesho · by Rishav</span></div>
+    </div>
+
+    <div class="step-label">Step 1 — Upload PDFs</div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('pdfInput').click()">
+      <input type="file" id="pdfInput" accept=".pdf" multiple onchange="handleFiles(this.files)">
+      <div class="uz-icon">📄</div>
+      <p><strong>Click or drag PDFs here</strong><br>Multiple files supported</p>
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <button class="btn-upload" id="btnProcess" onclick="processFiles()" disabled>Process Labels</button>
+
+    <div class="step-label" id="skuStepLabel" style="display:none">SKUs Detected</div>
+    <div id="sidebarSkus"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- Empty state -->
+    <div id="emptyState">
+      <div style="max-width:460px;margin:80px auto;text-align:center">
+        <div style="font-size:64px;margin-bottom:16px">🏷️</div>
+        <h2 style="font-size:24px;font-weight:800;margin-bottom:8px">Meesho Label Sorter</h2>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6">Upload your Meesho label PDFs on the left. The app will detect SKU IDs and sizes, then let you sort and download in any combination.</p>
+        <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600">✅ Sort by size</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600">✅ Group SKUs</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600">✅ Download by size</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600">✅ Multi-PDF upload</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content (shown after upload) -->
+    <div id="mainContent" style="display:none">
+      <div class="page-title" id="pageTitle">Labels Loaded</div>
+      <div class="page-sub" id="pageSub">Select a download mode below</div>
+
+      <div class="stats-bar" id="statsBar"></div>
+
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('skus',this)">📋 All SKUs</button>
+        <button class="tab-btn" onclick="showTab('groups',this)">🔗 Groups</button>
+        <button class="tab-btn" onclick="showTab('download',this)">⬇️ Download</button>
+      </div>
+
+      <!-- TAB: SKUs -->
+      <div class="tab-pane active" id="tab-skus">
+        <div class="selection-bar" id="selectionBar" style="display:none">
+          <span><span class="sb-count" id="selCount">0</span> SKUs selected</span>
+          <button class="btn-dl blue" onclick="downloadMix()">⬇ Download Mix (sorted by size)</button>
+          <button class="btn-dl outline" style="color:#f0ece4;border-color:#444" onclick="clearSelection()">Clear</button>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+          <table class="sku-table">
+            <thead>
+              <tr>
+                <th style="width:32px"><input type="checkbox" id="selectAll" onchange="toggleAll(this)" class="checkbox-sku"></th>
+                <th>SKU ID</th>
+                <th>Sizes</th>
+                <th>Labels</th>
+                <th>Source File</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="skuTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: Groups -->
+      <div class="tab-pane" id="tab-groups">
+        <div id="groupsList"></div>
+        <div class="new-group-form">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">➕ Create New Group</div>
+          <div class="fg-row">
+            <input type="text" id="newGroupName" placeholder="Group name (e.g. Black Polo)" style="flex:1;min-width:160px">
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Select SKUs to include:</div>
+          <div id="groupSkuCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+          <button class="btn-dl orange" onclick="createGroup()">Create Group</button>
+        </div>
+      </div>
+
+      <!-- TAB: Download -->
+      <div class="tab-pane" id="tab-download">
+        <div class="dl-panel">
+          <!-- Mode 1: Single SKU -->
+          <div class="dl-section">
+            <div class="dl-title">📄 Mode 1 — Single SKU (sorted by size)</div>
+            <div class="dl-row">
+              <select id="dl1Sku"><option value="">Select SKU...</option></select>
+              <button class="btn-dl orange" onclick="dlMode('single_sku')">⬇ Download</button>
+            </div>
+          </div>
+          <!-- Mode 2: Mix SKUs -->
+          <div class="dl-section">
+            <div class="dl-title">🔀 Mode 2 — Mix SKUs (sorted by size together)</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Tick SKUs in the "All SKUs" tab, then:</div>
+            <div class="dl-row">
+              <div id="dl2Selected" style="font-size:13px;color:var(--muted)">No SKUs selected</div>
+              <button class="btn-dl blue" onclick="downloadMix()">⬇ Download Mix</button>
+            </div>
+          </div>
+          <!-- Mode 3: Group -->
+          <div class="dl-section">
+            <div class="dl-title">🔗 Mode 3 — Group (sorted by size)</div>
+            <div class="dl-row">
+              <select id="dl3Group"><option value="">Select group...</option></select>
+              <button class="btn-dl green" onclick="dlMode('group')">⬇ Download Group</button>
+            </div>
+          </div>
+          <!-- Mode 4: By Size -->
+          <div class="dl-section">
+            <div class="dl-title">📐 Mode 4 — All labels for a specific size</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Downloads all labels of chosen size across selected SKUs (or all SKUs)</div>
+            <div class="dl-row" style="flex-wrap:wrap;gap:12px">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:6px">SIZE</div>
+                <div class="size-checkboxes" id="sizeCheckboxes"></div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:6px">FILTER SKUs (optional)</div>
+                <select id="dl4Sku" style="min-width:160px"><option value="">All SKUs</option></select>
+              </div>
+              <button class="btn-dl" style="background:var(--yellow);color:#000;align-self:flex-end" onclick="dlMode('by_size')">⬇ Download by Size</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let state = {
+  sessionId: null,
+  skuMap: {},
+  groups: {},
+  selectedSkus: new Set(),
+  files: []
+};
+
+// ── FILE HANDLING ──
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+
+let pendingFiles = [];
+
+function handleFiles(fileList) {
+  const newFiles = Array.from(fileList).filter(f => f.name.endsWith('.pdf'));
+  newFiles.forEach(f => { if (!pendingFiles.find(p => p.name === f.name)) pendingFiles.push(f); });
+  renderFileList();
+  document.getElementById('btnProcess').disabled = pendingFiles.length === 0;
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = pendingFiles.map((f, i) => `
+    <div class="file-chip">
+      <span class="fc-icon">📄</span>
+      <span class="fc-name">${f.name}</span>
+      <span class="fc-remove" onclick="removeFile(${i})">✕</span>
+    </div>`).join('');
+}
+
+function removeFile(i) {
+  pendingFiles.splice(i, 1);
+  renderFileList();
+  document.getElementById('btnProcess').disabled = pendingFiles.length === 0;
+}
+
+// ── PROCESS ──
+async function processFiles() {
+  if (!pendingFiles.length) return;
+  const btn = document.getElementById('btnProcess');
+  btn.innerHTML = '<span class="spinner"></span> Processing...';
+  btn.disabled = true;
+
+  const formData = new FormData();
+  pendingFiles.forEach(f => formData.append('pdfs', f));
+
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+
+    state.sessionId = data.session_id;
+    state.skuMap = data.skus;
+    state.groups = {};
+    state.selectedSkus = new Set();
+
+    renderUI(data);
+    toast(`✅ ${data.total_labels} labels loaded from ${pendingFiles.length} file(s)`, 'success');
+  } catch (e) {
+    toast('Upload failed: ' + e.message, 'error');
+  } finally {
+    btn.innerHTML = 'Process Labels';
+    btn.disabled = false;
+  }
+}
+
+function renderUI(data) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('pageTitle').textContent = `${data.total_labels} Labels Loaded`;
+  document.getElementById('pageSub').textContent = `${Object.keys(data.skus).length} unique SKUs detected across ${data.files.length} file(s)`;
+
+  // Stats
+  const totalSizes = new Set(Object.values(data.skus).flatMap(s => s.sizes)).size;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="stat-val">${data.total_labels}</div><div class="stat-lbl">Total Labels</div></div>
+    <div class="stat"><div class="stat-val">${Object.keys(data.skus).length}</div><div class="stat-lbl">SKU IDs</div></div>
+    <div class="stat"><div class="stat-val">${totalSizes}</div><div class="stat-lbl">Unique Sizes</div></div>
+    <div class="stat"><div class="stat-val">${data.files.length}</div><div class="stat-lbl">PDF Files</div></div>`;
+
+  // Sidebar SKU list
+  document.getElementById('skuStepLabel').style.display = 'block';
+  document.getElementById('sidebarSkus').innerHTML = Object.entries(data.skus).map(([sku, info]) => `
+    <div class="sku-item" onclick="selectSidebarSku('${sku}')">
+      <div>
+        <div class="si-name">${sku}</div>
+        <div class="si-sizes">${info.sizes.join(' · ')}</div>
+      </div>
+      <div class="si-count">${info.count}pcs</div>
+    </div>`).join('');
+
+  renderSkuTable();
+  renderGroupsTab();
+  updateDownloadSelects();
+}
+
+function renderSkuTable() {
+  const tbody = document.getElementById('skuTableBody');
+  const skus = Object.entries(state.skuMap);
+  if (!skus.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No SKUs detected</td></tr>'; return; }
+
+  tbody.innerHTML = skus.map(([sku, info]) => `
+    <tr>
+      <td><input type="checkbox" class="checkbox-sku sku-check" value="${sku}" onchange="toggleSkuSelect('${sku}', this.checked)" ${state.selectedSkus.has(sku)?'checked':''}></td>
+      <td><span class="mono" style="font-weight:700">${sku}</span></td>
+      <td>${info.sizes.map(s => `<span class="size-pill">${s}</span>`).join('')}</td>
+      <td class="mono">${info.count}</td>
+      <td style="font-size:11px;color:var(--muted)">—</td>
+      <td>
+        <button class="btn-dl orange" onclick="dlSingleSku('${sku}')" style="margin-right:4px">⬇ SKU</button>
+      </td>
+    </tr>`).join('');
+}
+
+function toggleSkuSelect(sku, checked) {
+  if (checked) state.selectedSkus.add(sku);
+  else state.selectedSkus.delete(sku);
+  updateSelectionBar();
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.sku-check').forEach(el => {
+    el.checked = cb.checked;
+    if (cb.checked) state.selectedSkus.add(el.value);
+    else state.selectedSkus.delete(el.value);
+  });
+  updateSelectionBar();
+}
+
+function clearSelection() {
+  state.selectedSkus.clear();
+  document.querySelectorAll('.sku-check').forEach(el => el.checked = false);
+  document.getElementById('selectAll').checked = false;
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selectionBar');
+  const count = state.selectedSkus.size;
+  bar.style.display = count > 0 ? 'flex' : 'none';
+  document.getElementById('selCount').textContent = count;
+  const dl2 = document.getElementById('dl2Selected');
+  if (dl2) dl2.textContent = count > 0 ? `${count} SKUs selected: ${[...state.selectedSkus].join(', ')}` : 'No SKUs selected';
+}
+
+// ── GROUPS ──
+function renderGroupsTab() {
+  const list = document.getElementById('groupsList');
+  const entries = Object.entries(state.groups);
+  list.innerHTML = entries.length ? entries.map(([name, skus]) => `
+    <div class="group-card">
+      <div class="group-name">
+        🔗 ${name}
+        <button class="btn-dl green" onclick="dlGroup('${name}')">⬇ Download</button>
+        <button class="btn-dl outline" onclick="deleteGroup('${name}')" style="margin-left:4px">✕</button>
+      </div>
+      <div class="group-skus">
+        ${skus.map(s => `<div class="group-sku-tag"><span>${s}</span><span class="remove" onclick="removeSkuFromGroup('${name}','${s}')">✕</span></div>`).join('')}
+      </div>
+    </div>`).join('') : '<p style="color:var(--muted);font-size:13px;margin-bottom:16px">No groups yet. Create one below to combine SKUs that are the same product.</p>';
+
+  // Checkboxes for new group
+  document.getElementById('groupSkuCheckboxes').innerHTML = Object.keys(state.skuMap).map(sku => `
+    <label class="size-cb" style="font-family:JetBrains Mono,monospace;font-size:12px">
+      <input type="checkbox" value="${sku}" id="gc_${sku}"> ${sku}
+    </label>`).join('');
+
+  updateDownloadSelects();
+}
+
+function createGroup() {
+  const name = document.getElementById('newGroupName').value.trim();
+  if (!name) return toast('Enter a group name', 'error');
+  const checked = [...document.querySelectorAll('#groupSkuCheckboxes input:checked')].map(el => el.value);
+  if (!checked.length) return toast('Select at least one SKU', 'error');
+  state.groups[name] = checked;
+  saveGroups();
+  document.getElementById('newGroupName').value = '';
+  renderGroupsTab();
+  toast(`Group "${name}" created with ${checked.length} SKUs`, 'success');
+}
+
+function deleteGroup(name) {
+  if (!confirm(`Delete group "${name}"?`)) return;
+  delete state.groups[name];
+  saveGroups();
+  renderGroupsTab();
+}
+
+function removeSkuFromGroup(groupName, sku) {
+  state.groups[groupName] = state.groups[groupName].filter(s => s !== sku);
+  if (!state.groups[groupName].length) delete state.groups[groupName];
+  saveGroups();
+  renderGroupsTab();
+}
+
+async function saveGroups() {
+  if (!state.sessionId) return;
+  await fetch('/save_groups', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ session_id: state.sessionId, groups: state.groups })
+  });
+  updateDownloadSelects();
+}
+
+function updateDownloadSelects() {
+  const skus = Object.keys(state.skuMap);
+  const sizes = [...new Set(Object.values(state.skuMap).flatMap(s => s.sizes))].sort((a,b) => sizeRank(a)-sizeRank(b));
+
+  const dl1 = document.getElementById('dl1Sku');
+  if (dl1) dl1.innerHTML = '<option value="">Select SKU...</option>' + skus.map(s=>`<option>${s}</option>`).join('');
+
+  const dl3 = document.getElementById('dl3Group');
+  if (dl3) dl3.innerHTML = '<option value="">Select group...</option>' + Object.keys(state.groups).map(g=>`<option>${g}</option>`).join('');
+
+  const dl4Sku = document.getElementById('dl4Sku');
+  if (dl4Sku) dl4Sku.innerHTML = '<option value="">All SKUs</option>' + skus.map(s=>`<option>${s}</option>`).join('');
+
+  const sizeCbs = document.getElementById('sizeCheckboxes');
+  if (sizeCbs) sizeCbs.innerHTML = sizes.map(s=>`<label class="size-cb"><input type="checkbox" value="${s}" name="dlSize"> ${s}</label>`).join('');
+}
+
+// ── DOWNLOADS ──
+async function dlSingleSku(sku) {
+  await doDownload({ mode: 'single_sku', sku });
+}
+
+async function downloadMix() {
+  if (!state.selectedSkus.size) return toast('Select SKUs first using the checkboxes', 'error');
+  await doDownload({ mode: 'mix_skus', skus: [...state.selectedSkus] });
+}
+
+async function dlGroup(name) {
+  await doDownload({ mode: 'group', group_name: name });
+}
+
+async function dlMode(mode) {
+  if (mode === 'single_sku') {
+    const sku = document.getElementById('dl1Sku').value;
+    if (!sku) return toast('Select a SKU first', 'error');
+    await doDownload({ mode, sku });
+  } else if (mode === 'mix_skus') {
+    await downloadMix();
+  } else if (mode === 'group') {
+    const g = document.getElementById('dl3Group').value;
+    if (!g) return toast('Select a group first', 'error');
+    await dlGroup(g);
+  } else if (mode === 'by_size') {
+    const sizes = [...document.querySelectorAll('input[name="dlSize"]:checked')].map(el=>el.value);
+    if (!sizes.length) return toast('Select at least one size', 'error');
+    const sku = document.getElementById('dl4Sku').value;
+    // Download one PDF per selected size
+    for (const size of sizes) {
+      await doDownload({ mode: 'by_size', size, skus: sku ? [sku] : [] });
+    }
+  }
+}
+
+async function doDownload(payload) {
+  if (!state.sessionId) return toast('Upload files first', 'error');
+  payload.session_id = state.sessionId;
+  toast('⏳ Generating PDF...');
+  try {
+    const res = await fetch('/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      return toast(err.error || 'Download failed', 'error');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const fnMatch = cd.match(/filename="?([^"]+)"?/);
+    const fname = fnMatch ? fnMatch[1] : 'labels.pdf';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`✅ Downloaded: ${fname}`, 'success');
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── UTILS ──
+const SIZE_ORDER = ['XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
+function sizeRank(s) { const i = SIZE_ORDER.indexOf(s.toUpperCase()); return i >= 0 ? i : 99; }
+
+function showTab(name, el) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'download') updateSelectionBar();
+}
+
+function selectSidebarSku(sku) {
+  document.getElementById('dl1Sku').value = sku;
+  showTab('download', document.querySelectorAll('.tab-btn')[2]);
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
