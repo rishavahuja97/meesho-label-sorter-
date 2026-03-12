@@ -120,6 +120,10 @@ sessions = {}
 def index():
     return render_template('index.html')
 
+@app.route('/ping')
+def ping():
+    return 'ok', 200
+
 @app.route('/upload', methods=['POST'])
 def upload():
     files = request.files.getlist('pdfs')
@@ -274,5 +278,37 @@ def cleanup(sid):
         del sessions[sid]
     return jsonify({'ok': True})
 
+@app.route('/export_groups', methods=['POST'])
+def export_groups():
+    data = request.json
+    sid = data.get('session_id')
+    groups = sessions.get(sid, {}).get('groups', {})
+    if not groups:
+        return jsonify({'error': 'No groups to export'}), 400
+    export_data = json.dumps({'groups': groups}, indent=2)
+    from io import BytesIO
+    buf = BytesIO(export_data.encode('utf-8'))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name='meesho_groups.json', mimetype='application/json')
+
+@app.route('/import_groups', methods=['POST'])
+def import_groups():
+    sid = request.form.get('session_id')
+    f = request.files.get('groups_file')
+    if not f or not sid:
+        return jsonify({'error': 'Missing file or session'}), 400
+    try:
+        data = json.loads(f.read().decode('utf-8'))
+        groups = data.get('groups', {})
+        if sid not in sessions:
+            # Create a minimal session to hold groups
+            sessions[sid] = {'labels': [], 'file_paths': [], 'sku_map': {}, 'groups': {}}
+        sessions[sid]['groups'] = groups
+        return jsonify({'ok': True, 'groups': groups})
+    except Exception as e:
+        return jsonify({'error': f'Invalid file: {e}'}), 400
+
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5050)))
+    port = int(os.environ.get('PORT', 5050))
+    print(f"\n✅ Meesho Label Sorter running at: http://localhost:{port}\n")
+    app.run(debug=False, host='0.0.0.0', port=port)
